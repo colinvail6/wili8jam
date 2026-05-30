@@ -651,14 +651,14 @@ static int p8_abs(lua_State *L) {
 }
 
 static int p8_max(lua_State *L) {
-    lua_Number a = luaL_checknumber(L, 1);
+    lua_Number a = luaL_optnumber(L, 1, 0);  // nil → 0, matches PICO-8 behavior
     lua_Number b = luaL_optnumber(L, 2, 0);
     lua_pushnumber(L, a > b ? a : b);
     return 1;
 }
 
 static int p8_min(lua_State *L) {
-    lua_Number a = luaL_checknumber(L, 1);
+    lua_Number a = luaL_optnumber(L, 1, 0);  // nil → 0, matches PICO-8 behavior
     lua_Number b = luaL_optnumber(L, 2, 0);
     lua_pushnumber(L, a < b ? a : b);
     return 1;
@@ -1705,6 +1705,7 @@ static int p8_memset(lua_State *L) {
 
 static void cartdata_save(void) {
     if (!p8_cartdata_open) return;
+    f_mkdir("/cartdata"); // ensure directory exists before saving
     static char cd_path[128];
     snprintf(cd_path, sizeof(cd_path), "/cartdata/%s.dat", p8_cartdata_id);
     static FIL cd_fil;  // static to avoid ~600 bytes on stack
@@ -1842,6 +1843,7 @@ void p8_register_api(lua_State *L) {
 
     // Map
     lua_register(L, "map", p8_map);
+    lua_register(L, "mapdraw", p8_map);  // legacy PICO-8 alias for map()
     lua_register(L, "mget", p8_mget);
     lua_register(L, "mset", p8_mset);
 
