@@ -1089,6 +1089,17 @@ static bool transform_chars(buf_t *out, const char *line, size_t len,
         }
 
         /* Default: copy character */
+        /* PICO-8 allows statements to be chained with no separator, e.g.
+           "x=2sfx(1)" where "2" ends the expression and "sfx" starts a new
+           statement. Lua's lexer sees "2s" as a malformed number. Fix: if the
+           previous output character was a digit and the current character is a
+           letter that isn't a valid number continuation (x/e/E), insert a
+           space before it. */
+        if (isalpha((unsigned char)c) && c != 'x' && c != 'X' &&
+            c != 'e' && c != 'E' &&
+            out->len > 0 && isdigit((unsigned char)out->data[out->len - 1])) {
+            buf_putc(out, ' ');
+        }
         buf_putc(out, c);
         i++;
     }
