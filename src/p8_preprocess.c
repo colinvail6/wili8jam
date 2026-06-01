@@ -197,13 +197,24 @@ char *p8_preprocess(const char *src, size_t src_len, size_t *out_len) {
                 while (j < next_line_len && (next_line_ptr[j] == ' ' || next_line_ptr[j] == '\t')) j++;
                 if (j < next_line_len && next_line_ptr[j] == '=' &&
                     (j + 1 >= next_line_len || next_line_ptr[j+1] != '=')) {
-                    /* Next line starts with = (not ==) — join lines */
-                    buf_append(&joined, line, line_len);
-                    buf_putc(&joined, ' ');
-                    pos = peek_pos; /* skip the next line since we peeked it */
-                    buf_append(&joined, next_line_ptr, next_line_len);
-                    buf_putc(&joined, ' ');
-                    continue;
+                    /* Next line starts with = (not ==) — join and process immediately */
+                    buf_t tmp;
+                    if (buf_init(&tmp, line_len + next_line_len + 4)) {
+                        buf_append(&tmp, line, line_len);
+                        buf_putc(&tmp, ' ');
+                        buf_append(&tmp, next_line_ptr, next_line_len);
+                        pos = peek_pos;
+                        if (!process_line(&out, tmp.data, tmp.len, &in_long, &long_level)) {
+                            tlsf_free(s_tlsf, tmp.data);
+                            tlsf_free(s_tlsf, out.data);
+                            tlsf_free(s_tlsf, joined.data);
+                            return NULL;
+                        }
+                        buf_putc(&out, '\n');
+                        tlsf_free(s_tlsf, tmp.data);
+                        joined.len = 0;
+                        continue;
+                    }
                 }
             }
         }
