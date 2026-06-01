@@ -1089,16 +1089,20 @@ static bool transform_chars(buf_t *out, const char *line, size_t len,
         }
 
         /* Default: copy character */
-        /* PICO-8 allows statements to be chained with no separator, e.g.
-           "x=2sfx(1)" where "2" ends the expression and "sfx" starts a new
-           statement. Lua's lexer sees "2s" as a malformed number. Fix: if the
-           previous output character was a digit and the current character is a
-           letter that isn't a valid number continuation (x/e/E), insert a
-           space before it. */
-        if (isalpha((unsigned char)c) && c != 'x' && c != 'X' &&
-            c != 'e' && c != 'E' &&
+        /* PICO-8 allows statements chained with no separator e.g. "x=2sfx(1)".
+           Insert a space when a digit is followed by a letter that isn't a valid
+           number continuation. Valid continuations: x/X (hex prefix), e/E
+           (scientific notation), a-f/A-F only when inside a 0x hex literal. */
+        if (isalpha((unsigned char)c) &&
             out->len > 0 && isdigit((unsigned char)out->data[out->len - 1])) {
-            buf_putc(out, ' ');
+            bool is_valid = (c == 'x' || c == 'X' || c == 'e' || c == 'E');
+            if (!is_valid && ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+                size_t k = out->len;
+                while (k > 0 && isxdigit((unsigned char)out->data[k-1])) k--;
+                if (k >= 2 && out->data[k-1] == 'x' && out->data[k-2] == '0')
+                    is_valid = true;
+            }
+            if (!is_valid) buf_putc(out, ' ');
         }
         buf_putc(out, c);
         i++;
