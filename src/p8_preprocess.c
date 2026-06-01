@@ -180,6 +180,34 @@ char *p8_preprocess(const char *src, size_t src_len, size_t *out_len) {
             continue;
         }
 
+        /* Handle PICO-8 multi-line assignment: variable list on one line,
+           = and values on the next. Detect by peeking at the next line —
+           if it starts with '=' (after whitespace), join the lines.
+           Example:
+               actx,acty,helditem
+               =(mouse and ...)/8,...
+           becomes: actx,acty,helditem =(mouse and ...)/8,...
+        */
+        if (!in_long) {
+            size_t peek_pos = pos;
+            const char *next_line_ptr;
+            size_t next_line_len;
+            if (next_line(src, src_len, &peek_pos, &next_line_ptr, &next_line_len)) {
+                size_t j = 0;
+                while (j < next_line_len && (next_line_ptr[j] == ' ' || next_line_ptr[j] == '\t')) j++;
+                if (j < next_line_len && next_line_ptr[j] == '=' &&
+                    (j + 1 >= next_line_len || next_line_ptr[j+1] != '=')) {
+                    /* Next line starts with = (not ==) — join lines */
+                    buf_append(&joined, line, line_len);
+                    buf_putc(&joined, ' ');
+                    pos = peek_pos; /* skip the next line since we peeked it */
+                    buf_append(&joined, next_line_ptr, next_line_len);
+                    buf_putc(&joined, ' ');
+                    continue;
+                }
+            }
+        }
+
         const char *proc_line = line;
         size_t proc_len = line_len;
 
